@@ -1,5 +1,5 @@
-import axios from "axios";
-import Notiflix from 'notiflix';
+import './css/styles.css';
+import notifier from './service/notifier';
 import SimpleLightbox from "simplelightbox";
 import "simplelightbox/dist/simple-lightbox.min.css";
 
@@ -8,37 +8,59 @@ import "simplelightbox/dist/simple-lightbox.min.css";
 //     console.log(res.data);
 //   });
 
-const ref = {
+const refs = {
   searchForm: document.querySelector(`#search-form`),
-  input: document.querySelector(`[type="text"]`),
-  button: document.querySelector(`[type="submit"]`),
   gallery: document.querySelector(`.gallery`),
 }
 
-ref.searchForm.addEventListener(`submit`, (e) => {
+refs.searchForm.addEventListener(`submit`, (e) => {
   e.preventDefault();
-  console.log(e.currentTarget.elements.searchQuery.value);
+  // const searchFormQuery = e.currentTarget.elements.searchForm.value;
+  
+
+  const searchParams = new URLSearchParams({
+    key: `34615621-fecaa10f9eea33d0198f958f8`,
+    q: ``,
+    image_type: `photo`,
+    orientation: `horizontal`,
+    safesearch: true,
+    page: 1,
+    per_page: 40,
+  })
+
+ 
+  fetch(`https://pixabay.com/api/?${searchParams}`)
+  .then(response => response.json())
+  .then(({hits}) => {
+    renderCards(hits)
+  }).catch(error => {
+    console.log(error);
+  })
+
 })
 
-function renderCards(cards) {
-    const markup = cards.markup(({webformatURL, largeImageURL, tags, likes, views, comments, downloads}) => {
+
+function renderCards(hits) {
+    const markup = hits.map(({webformatURL, largeImageURL, tags, likes, views, comments, downloads}) => {
         return `
         <div class="photo-card">
   <img src="${webformatURL}" alt="${tags}" loading="lazy" />
   <div class="info">
     <p class="info-item">
-      <b>Likes</b>${likes}
+      <b>Likes</b><span>${likes}</span>
     </p>
     <p class="info-item">
-      <b>Views</b>${views}
+      <b>Views</b><span>${views}</span>
     </p>
     <p class="info-item">
-      <b>Comments</b>${comments}
+      <b>Comments</b><span>${comments}</span>
     </p>
     <p class="info-item">
-      <b>Downloads</b>${downloads}
+      <b>Downloads</b><span>${downloads}</span>
     </p>
   </div>
 </div>`
     }).join(``);
+
+    refs.gallery.innerHTML = markup;
 }
