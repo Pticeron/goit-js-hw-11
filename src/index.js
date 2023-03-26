@@ -2,65 +2,103 @@ import './css/styles.css';
 import notifier from './service/notifier';
 import SimpleLightbox from "simplelightbox";
 import "simplelightbox/dist/simple-lightbox.min.css";
+import picsTpl from "./templates/pics-list.hbs";
+import PicsApiService from "./pics-api.js";
 
-// axios.get('/users')
-//   .then(res => {
-//     console.log(res.data);
-//   });
 
 const refs = {
-  searchForm: document.querySelector(`#search-form`),
-  gallery: document.querySelector(`.gallery`),
+  searchForm: document.querySelector(`.search-form`),
+  picsContainer: document.querySelector(`.gallery`),
+  sentinel: document.querySelector('#sentinel'),
 }
 
-refs.searchForm.addEventListener(`submit`, (e) => {
+const picsApiService = new PicsApiService();
+
+const gallery = new SimpleLightbox('.gallery a');
+
+
+refs.searchForm.addEventListener(`submit`, onSearch);
+
+function onSearch(e) {
   e.preventDefault();
-  // const searchFormQuery = e.currentTarget.elements.searchForm.value;
+  
+  clearPicsList();
+  picsApiService.query = e.currentTarget.searchQuery.value.trim();
+
+  if (picsApiService.query === ``) {
+  return notifier.info("Please enter a request.")
+  }
+
+  picsApiService.resetPage();
+  getPics();
+}
+
+async function getPics() {
+  try {
+    const { hits, totalHits} = await picsApiService.fetchPics();
+
+    if(hits.length === 0 && picsApiService.queryPage <= 2) throw "No data";
+    if (hits.length === 0 && picsApiService.queryPage > 2) {
+      throw "End of data";
+  };
+  if (!(hits.length === 0) && picsApiService.queryPage === 2) {
+    notifier.success(`Hooray! We found ${totalHits} images.`);
+  };
+      
+  renderPicsMarkup(hits);
+
+  gallery.refresh();
+  gallery.on('show.simplelightbox');
+}
+catch (err) {
+  onFetchError(err);
+}
+finally {
+  if (picsApiService.queryPage === 2) refs.searchForm.reset();
+}
+}
+
+function renderPicsMarkup(pics) {
+  const markup = picsTpl(pics);
+  refs.picsContainer.insertAdjacentHTML(`beforeend`, markup);
+}
+
+function clearPicsList() {
+  refs.picsContainer.innerHTML = "";
+}
+
+function onFetchError(error) {
+  console.log('error :>>', error);
+  switch (error) { 
+    case "No data":
+      notifier.error("Sorry, there are no images matching your search query. Please try again.");
+      break;
+    case "End of data":
+      notifier.error("We're sorry, but you've reached the end of search results.");
+      break;
+  }
+}
+
+// infinite scroll
+
+const onEntry = entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting && picsApiService.query !== '') {
+      getPics();
+    }
+  }
+  );
+};
+
+const observer = new IntersectionObserver(onEntry, {
+  rootMargin: '150px',
+});
+observer.observe(refs.sentinel);
+
+
   
 
-  const searchParams = new URLSearchParams({
-    key: `34615621-fecaa10f9eea33d0198f958f8`,
-    q: ``,
-    image_type: `photo`,
-    orientation: `horizontal`,
-    safesearch: true,
-    page: 1,
-    per_page: 40,
-  })
-
- 
-  fetch(`https://pixabay.com/api/?${searchParams}`)
-  .then(response => response.json())
-  .then(({hits}) => {
-    renderCards(hits)
-  }).catch(error => {
-    console.log(error);
-  })
-
-})
+  
 
 
-function renderCards(hits) {
-    const markup = hits.map(({webformatURL, largeImageURL, tags, likes, views, comments, downloads}) => {
-        return `
-        <div class="photo-card">
-  <img src="${webformatURL}" alt="${tags}" loading="lazy" />
-  <div class="info">
-    <p class="info-item">
-      <b>Likes</b><span>${likes}</span>
-    </p>
-    <p class="info-item">
-      <b>Views</b><span>${views}</span>
-    </p>
-    <p class="info-item">
-      <b>Comments</b><span>${comments}</span>
-    </p>
-    <p class="info-item">
-      <b>Downloads</b><span>${downloads}</span>
-    </p>
-  </div>
-</div>`
-    }).join(``);
 
-    refs.gallery.innerHTML = markup;
-}
